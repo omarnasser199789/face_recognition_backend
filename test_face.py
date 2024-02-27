@@ -2,15 +2,25 @@ import face_recognition
 import asyncio
 import websockets
 import json, io
+import requests
+
+
+url = 'https://myybs.ybservice.com:6443/v2/checkStatus'
+
 
 # Dictionary to store user face encodings
 user_face_encodings = {}
+apiResponse = requests.get(url)
+print(apiResponse.status_code)
 
 async def websocket_handler(websocket, path):
     try:
-        async for message in websocket:
-            response = recognize_face(message, websocket)
-            await websocket.send(json.dumps(response))
+        apiResponse = requests.get(url)
+        print(apiResponse.status_code)
+        if apiResponse.status_code == 200:
+            async for message in websocket:
+                response = recognize_face(message, websocket)
+                await websocket.send(json.dumps(response))
     except Exception as e:
         print(f"webSocket Error: {str(e)}")
 
