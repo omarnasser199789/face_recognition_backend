@@ -7,7 +7,10 @@ import requests
 import numpy as np
 
 baseUrl = 'http://10.17.24.1:8080'
-user_ids = []
+user_sockets = {}
+
+expected_fields = ["Authorization", "fcmToken", "refreshToken", "lang"]
+
 user_face_encoding = np.array([-0.17074172, 0.07812507, 0.08236964, -0.02922146, -0.01920027, -0.08254959,
                                -0.09183867, -0.02900358, 0.11314897, -0.04685779, 0.2010667, 0.0091875,
                                -0.1760285, -0.04568482, -0.06863898, 0.07285462, -0.10650066, -0.06155955,
@@ -31,25 +34,24 @@ user_face_encoding = np.array([-0.17074172, 0.07812507, 0.08236964, -0.02922146,
                                0.00935903, -0.09216777, -0.05859243, -0.02676699, 0.05431541, 0.04054001,
                                0.04190234, 0.05283551])
 
-expected_fields = ["Authorization", "fcmToken", "refreshToken", "lang"]
-
 async def websocket_handler(websocket, path):
     try:
         user_id = id(websocket)
         print("user_id")
         print(user_id)
+        user_sockets[user_id] = websocket
+
         async for message in websocket:
             # Decode the received JSON message
             data = json.loads(message)
             if all(field in data for field in expected_fields):
 
-                if user_id in user_ids:
+                if user_id in user_sockets:
                     await start_recognize_face(websocket, data["image"], user_face_encoding)
                 else:
                      # Call the function in your websocket_handler
                      api_response = await refresh_token(data, baseUrl)
                      if api_response.status_code == 200:
-                         user_ids.append(user_id)
                          await start_recognize_face(websocket, data["image"], user_face_encoding)
             else:
                 missing_fields = [field for field in expected_fields if field not in data]
@@ -57,6 +59,8 @@ async def websocket_handler(websocket, path):
 
     except Exception as e:
         print(f"webSocket Error: {str(e)}")
+    finally:
+        del user_sockets[user_id]
 
 async def refresh_token(data, baseUrl):
     bodyData = {
